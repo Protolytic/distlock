@@ -1,13 +1,12 @@
 package distlock
 
 import (
-	"fmt"
 	goredis "github.com/go-redis/redis"
 	"github.com/palantir/stacktrace"
 	"strconv"
 	"sync"
 	"time"
-	)
+)
 
 var goredisGlobal struct {
 	luaUnlockSha    string
@@ -78,16 +77,16 @@ func (r *goredisLocker) getLuaKeepAliveSha(forceReload bool) string {
 	goredisGlobal.lock.Lock()
 	defer goredisGlobal.lock.Unlock()
 
-	if !forceReload && goredisGlobal.luaUnlockSha != "" {
-		return goredisGlobal.luaUnlockSha
+	if !forceReload && goredisGlobal.luaKeepAliveSha != "" {
+		return goredisGlobal.luaKeepAliveSha
 	}
 
-	unlockScriptExists := r.redis.ScriptExists(goredisGlobal.luaUnlockSha).Val()[0]
+	unlockScriptExists := r.redis.ScriptExists(goredisGlobal.luaKeepAliveSha).Val()[0]
 	if !unlockScriptExists {
-		goredisGlobal.luaUnlockSha = r.redis.ScriptLoad(luaKeepAlive).Val()
+		goredisGlobal.luaKeepAliveSha = r.redis.ScriptLoad(luaKeepAlive).Val()
 	}
 
-	return goredisGlobal.luaUnlockSha
+	return goredisGlobal.luaKeepAliveSha
 }
 
 func (r *goredisLocker) GetLockStatus() (result LockStatusResult) {
@@ -194,9 +193,8 @@ func (r *goredisLocker) KeepAlive() (result LockStatusResult) {
 	}
 	returnCode, err := cmd.Int()
 
-	result.IsLocked = returnCode == 1 || returnCode == 2
+	result.IsLocked = returnCode != -1
 	result.IsOwner = returnCode == 1 || returnCode == 0
 	result.Error = err
-	fmt.Printf("KeepAlive Return Code: %d\n", returnCode)
 	return
 }
